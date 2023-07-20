@@ -1,6 +1,8 @@
 # Natural Language Processing
 langchain==0.0.267
 chromadb==0.4.6
+#llama-cpp-python==0.1.66
+llama-cpp-python==0.2.37
 pdfminer.six==20221105
 InstructorEmbedding
 sentence-transformers
@@ -15,6 +17,7 @@ auto-gptq==0.2.2; sys_platform != 'darwin'
 docx2txt
 unstructured
 unstructured[pdf]
+singlestoredb
 
 # Utilities
 urllib3==1.26.6

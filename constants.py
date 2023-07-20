@@ -48,6 +48,7 @@ DOCUMENT_MAP = {
     ".txt": TextLoader,
     ".md": UnstructuredMarkdownLoader,
     ".py": TextLoader,
+    ".go": TextLoader,
     # ".pdf": PDFMinerLoader,
     ".pdf": UnstructuredFileLoader,
     ".csv": CSVLoader,
@@ -58,6 +59,7 @@ DOCUMENT_MAP = {
 }
 
 # Default Instructor Model
+# EMBEDDING_MODEL_NAME = "hkunlp/instructor-xl"
 EMBEDDING_MODEL_NAME = "hkunlp/instructor-large"  # Uses 1.5 GB of VRAM (High Accuracy with lower VRAM usage)
 
 ####

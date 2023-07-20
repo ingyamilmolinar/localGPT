@@ -5,16 +5,19 @@ import torch
 import utils
 from langchain.chains import RetrievalQA
 from langchain.embeddings import HuggingFaceInstructEmbeddings
-from langchain.llms import HuggingFacePipeline
+from langchain.llms import HuggingFacePipeline, LlamaCpp
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler  # for streaming response
 from langchain.callbacks.manager import CallbackManager
 
 callback_manager = CallbackManager([StreamingStdOutCallbackHandler()])
 
 from prompt_template_utils import get_prompt_template
+from langchain.vectorstores.utils import DistanceStrategy
 
 # from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
-from langchain.vectorstores import Chroma
+#from langchain.vectorstores import Chroma
+from langchain.vectorstores import SingleStoreDB
+
 from transformers import (
     GenerationConfig,
     pipeline,
@@ -29,14 +32,13 @@ from load_models import (
 
 from constants import (
     EMBEDDING_MODEL_NAME,
-    PERSIST_DIRECTORY,
+#    PERSIST_DIRECTORY,
     MODEL_ID,
     MODEL_BASENAME,
     MAX_NEW_TOKENS,
     MODELS_PATH,
-    CHROMA_SETTINGS
+#    CHROMA_SETTINGS
 )
-
 
 def load_model(device_type, model_id, model_basename=None, LOGGING=logging):
     """
@@ -73,7 +75,7 @@ def load_model(device_type, model_id, model_basename=None, LOGGING=logging):
         model, tokenizer = load_full_model(model_id, model_basename, device_type, LOGGING)
 
     # Load configuration from the model to avoid warnings
-    generation_config = GenerationConfig.from_pretrained(model_id)
+    generation_config = GenerationConfig.from_pretrained(model_id, use_auth_token=True)
     # see here for details:
     # https://huggingface.co/docs/transformers/
     # main_classes/text_generation#transformers.GenerationConfig.from_pretrained.returns
@@ -84,7 +86,10 @@ def load_model(device_type, model_id, model_basename=None, LOGGING=logging):
         model=model,
         tokenizer=tokenizer,
         max_length=MAX_NEW_TOKENS,
+        #max_length=4096,
+        #max_length=2048,
         temperature=0.2,
+        # temperature=0,
         # top_p=0.95,
         repetition_penalty=1.15,
         generation_config=generation_config,
@@ -124,10 +129,22 @@ def retrieval_qa_pipline(device_type, use_history, promptTemplate_type="llama"):
     # embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL_NAME)
 
     # load the vectorstore
-    db = Chroma(
-        persist_directory=PERSIST_DIRECTORY,
-        embedding_function=embeddings,
-        client_settings=CHROMA_SETTINGS
+    #db = Chroma(
+    #    persist_directory=PERSIST_DIRECTORY,
+    #    embedding_function=embeddings,
+    #    client_settings=CHROMA_SETTINGS
+    #)
+    db = SingleStoreDB(
+        embedding=embeddings,
+        distance_strategy=DistanceStrategy.DOT_PRODUCT,
+        host="svc-a197f7b6-4ad0-43ab-88e0-73a0dd372080-dml.aws-ohio-1.svc.singlestore.com",
+        port=3306,
+        user="admin",
+        password="password",
+        database="localgpt",
+        table_name="localgpt",
+        pool_size=10,
+        timeout=60,
     )
     retriever = db.as_retriever()
 
@@ -236,6 +253,11 @@ def main(device_type, show_sources, use_history, model_type, save_qa):
     - The user can exit the interactive loop by entering "exit".
     - The source documents are displayed if the show_sources flag is set to True.
 
+    1. Loads an embedding model, can be HuggingFaceInstructEmbeddings or HuggingFaceEmbeddings
+    2. Loads the existing vectorestore that was created by ingest.py
+    3. Loads the local LLM using load_model function - You can now set different LLMs.
+    4. Setup the Question Answer retreival chain.
+    5. Question answers.
     """
 
     logging.info(f"Running on: {device_type}")
@@ -247,6 +269,7 @@ def main(device_type, show_sources, use_history, model_type, save_qa):
         os.mkdir(MODELS_PATH)
 
     qa = retrieval_qa_pipline(device_type, use_history, promptTemplate_type=model_type)
+
     # Interactive questions and answers
     while True:
         query = input("\nEnter a query: ")
@@ -262,7 +285,8 @@ def main(device_type, show_sources, use_history, model_type, save_qa):
         print("\n> Answer:")
         print(answer)
 
-        if show_sources:  # this is a flag that you can set to disable showing answers.
+        #if show_sources:  # this is a flag that you can set to disable showing answers.
+        if True:  # this is a flag that you can set to disable showing answers.
             # # Print the relevant sources used for the answer
             print("----------------------------------SOURCE DOCUMENTS---------------------------")
             for document in docs:
